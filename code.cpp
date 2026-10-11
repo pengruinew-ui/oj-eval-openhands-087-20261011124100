@@ -30,93 +30,72 @@ int main() {
     // Output the final position (1-indexed)
     cout << pos + 1 << endl;
     
-    // Now calculate the final switch states efficiently
-    // For each switch, we can calculate how many times it's been toggled
-    // by n balls using a mathematical approach rather than simulation
+    // Now calculate the final switch states
+    // We can use the fact that the toggle pattern is deterministic
+    // Each switch at depth d is toggled in a pattern with period 2^(d+1)
     
-    // The key insight: each switch at depth d toggles in a pattern
-    // with period 2^(d+1), where it's active for 2^d steps
-    // For each node in the tree (all are switches)
-    // Total nodes: 2^D - 1
-    vector<bool> switch_states((1 << D) - 1, false);
+    // Total number of nodes (switches) in a complete binary tree of depth D
+    int total_nodes = (1 << D) - 1;
+    vector<bool> switch_states(total_nodes, false);
     
-    for (int i = 0; i < (1 << D) - 1; i++) {
+    // For each node, calculate how many times it's been toggled
+    for (int i = 0; i < total_nodes; i++) {
         // Calculate the depth of node i
-        // Depth 0: node 0
-        // Depth 1: nodes 1,2
-        // Depth 2: nodes 3,4,5,6
-        // etc.
         int depth = 0;
-        int nodes_at_depth = 1;  // Number of nodes at current depth
-        int first_node_at_depth = 0;  // First node index at current depth
-        
-        while (first_node_at_depth + nodes_at_depth <= i) {
+        int temp = i;
+        while (temp) {
+            temp = (temp - 1) / 2;
             depth++;
-            first_node_at_depth += nodes_at_depth;
-            nodes_at_depth *= 2;
         }
         
-        // For a node at depth d, the number of balls that pass through it
-        // follows a pattern based on binary representation
-        // The node is visited by a ball if the ball's path matches the
-        // path to this node for the first d steps
+        // For a node at depth d, the number of times it's toggled by n balls
+        // is equal to the number of balls that pass through it
+        // This can be calculated as: (n + offset) >> (depth + 1) << depth + min((n + offset) & ((1 << (depth + 1)) - 1), 1 << depth)
+        // But there's a simpler way: the number of balls that pass through
+        // a node at depth d is floor((n + (1 << depth) - 1) / (1 << (depth + 1))) * (1 << depth) + 
+        //                          max(0, (n + (1 << depth) - 1) % (1 << (depth + 1)) - (1 << depth) + 1)
         
-        // Calculate how many balls pass through this node
-        // This is equivalent to counting numbers from 0 to n-1 that
-        // have a specific prefix in their binary representation
+        // Simpler approach: the number of balls that pass through node i
+        // is the number of integers k in [0, n-1] such that the first 'depth' bits
+        // of k match the path to node i
         
-        // The path to node i can be represented as a binary number
-        // We need to find the prefix corresponding to the path to this node
-        
-        // Reconstruct the path to node i
-        int path_to_node = 0;
-        int bit_count = 0;
+        // Reconstruct the path to node i as a binary number
+        int node_path = 0;
+        int bit_pos = 0;
         int node = i;
-        
-        // Traverse from node i up to root, recording the path
         while (node > 0) {
-            if (node % 2 == 1) {
-                // Left child
-                path_to_node |= (0 << bit_count);  // 0 for left
-            } else {
-                // Right child
-                path_to_node |= (1 << bit_count);  // 1 for right
+            if (node % 2 == 0) {  // Right child
+                node_path |= (1 << bit_pos);
             }
+            // Left child (bit remains 0)
             node = (node - 1) / 2;
-            bit_count++;
+            bit_pos++;
         }
         
-        // The prefix length is depth
-        // We need to count how many numbers in [0, n-1] have the first
-        // 'depth' bits equal to 'path_to_node'
-        
+        // Count how many numbers in [0, n-1] have the same first 'depth' bits
+        // as node_path
         if (depth == 0) {
-            // Root node - all balls pass through
+            // Root node - all n balls pass through
             switch_states[i] = (n % 2 == 1);
         } else {
-            // Calculate the number of balls with the required prefix
-            // The numbers with the prefix are in the range:
-            // [path_to_node << (D-1-depth), (path_to_node + 1) << (D-1-depth))
-            // but we need to intersect with [0, n)
-            
+            // The numbers with the same prefix are in the range:
+            // [node_path << (D-1-depth), (node_path + 1) << (D-1-depth))
+            // Intersect with [0, n)
             int shift = D - 1 - depth;
-            if (shift < 0) shift = 0;  // For leaf nodes
+            if (shift < 0) shift = 0;
             
-            int start = path_to_node << shift;
-            int end = (path_to_node + 1) << shift;
+            int start = node_path << shift;
+            int end = (node_path + 1) << shift;
             
             int count = 0;
             if (start < n) {
                 count = min(n, end) - start;
             }
-            
-            // Switch is open if toggled odd number of times
             switch_states[i] = (count % 2 == 1);
         }
     }
     
     // Output leaf node switch states (from left to right)
-    // Leaf nodes start at index (1 << (D-1)) - 1
     int leaf_start = (1 << (D-1)) - 1;
     for (int i = 0; i < leaf_count; i++) {
         if (i > 0) cout << " ";
