@@ -30,29 +30,46 @@ int main() {
     // Output the final position (1-indexed)
     cout << pos + 1 << endl;
     
-    // Now calculate the final switch states
-    // Each switch at position i will be toggled once for each ball 
-    // that passes through it. We can calculate this by simulating 
-    // all n balls but just tracking the toggle count for each switch
-    vector<int> toggle_count((1 << D) - 1, 0);
+    // Now calculate the final switch states efficiently
+    // For each switch, we can calculate how many times it's been toggled
+    // by n balls using a mathematical approach rather than simulation
     
-    for (int ball = 1; ball <= n; ball++) {
-        int current = 0;  // Start at root
-        int ball_path = ball - 1;  // 0-indexed
-        
-        // Traverse from root to leaf
-        for (int depth = 0; depth < D - 1; depth++) {
-            toggle_count[current]++;
-            
-            if (ball_path & 1) {
-                // Go right
-                current = 2 * current + 2;
-            } else {
-                // Go left
-                current = 2 * current + 1;
-            }
-            ball_path >>= 1;
+    // The key insight: each switch at depth d toggles in a pattern
+    // with period 2^(d+1), where it's active for 2^d steps
+    vector<bool> switch_states((1 << D) - 1, false);
+    
+    // For each switch in the tree
+    for (int i = 0; i < (1 << D) - 1; i++) {
+        // Calculate the depth of this switch
+        int depth = 0;
+        int temp = i;
+        while (temp > 0) {
+            temp = (temp - 1) / 2;
+            depth++;
         }
+        
+        // For depth d, the toggle pattern has period 2^(d+1)
+        // and the switch is toggled for the first 2^d steps of each period
+        int period = 1 << (depth + 1);  // 2^(depth+1)
+        int half_period = 1 << depth;   // 2^depth
+        
+        // Calculate how many times this switch is toggled by n balls
+        int full_cycles = n / period;
+        int remainder = n % period;
+        
+        // Each full cycle contributes half_period toggles
+        int toggle_count = full_cycles * half_period;
+        
+        // Add toggles from the incomplete cycle
+        // The switch is toggled for the first half_period steps of the period
+        if (remainder > half_period) {
+            toggle_count += half_period;
+        } else {
+            toggle_count += remainder;
+        }
+        
+        // Switch is open (1) if toggled odd number of times
+        switch_states[i] = (toggle_count % 2 == 1);
     }
     
     // Output leaf node switch states (from left to right)
@@ -60,8 +77,7 @@ int main() {
     int leaf_start = (1 << (D-1)) - 1;
     for (int i = 0; i < leaf_count; i++) {
         if (i > 0) cout << " ";
-        // Switch is open (1) if toggled odd number of times, closed (0) if even
-        cout << (toggle_count[leaf_start + i] % 2);
+        cout << switch_states[leaf_start + i];
     }
     cout << endl;
     
