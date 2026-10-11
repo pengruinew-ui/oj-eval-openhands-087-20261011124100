@@ -36,40 +36,83 @@ int main() {
     
     // The key insight: each switch at depth d toggles in a pattern
     // with period 2^(d+1), where it's active for 2^d steps
+    // For each node in the tree (all are switches)
+    // Total nodes: 2^D - 1
     vector<bool> switch_states((1 << D) - 1, false);
     
-    // For each switch in the tree
     for (int i = 0; i < (1 << D) - 1; i++) {
-        // Calculate the depth of this switch
+        // Calculate the depth of node i
+        // Depth 0: node 0
+        // Depth 1: nodes 1,2
+        // Depth 2: nodes 3,4,5,6
+        // etc.
         int depth = 0;
-        int temp = i;
-        while (temp > 0) {
-            temp = (temp - 1) / 2;
+        int nodes_at_depth = 1;  // Number of nodes at current depth
+        int first_node_at_depth = 0;  // First node index at current depth
+        
+        while (first_node_at_depth + nodes_at_depth <= i) {
             depth++;
+            first_node_at_depth += nodes_at_depth;
+            nodes_at_depth *= 2;
         }
         
-        // For depth d, the toggle pattern has period 2^(d+1)
-        // and the switch is toggled for the first 2^d steps of each period
-        int period = 1 << (depth + 1);  // 2^(depth+1)
-        int half_period = 1 << depth;   // 2^depth
+        // For a node at depth d, the number of balls that pass through it
+        // follows a pattern based on binary representation
+        // The node is visited by a ball if the ball's path matches the
+        // path to this node for the first d steps
         
-        // Calculate how many times this switch is toggled by n balls
-        int full_cycles = n / period;
-        int remainder = n % period;
+        // Calculate how many balls pass through this node
+        // This is equivalent to counting numbers from 0 to n-1 that
+        // have a specific prefix in their binary representation
         
-        // Each full cycle contributes half_period toggles
-        int toggle_count = full_cycles * half_period;
+        // The path to node i can be represented as a binary number
+        // We need to find the prefix corresponding to the path to this node
         
-        // Add toggles from the incomplete cycle
-        // The switch is toggled for the first half_period steps of the period
-        if (remainder > half_period) {
-            toggle_count += half_period;
+        // Reconstruct the path to node i
+        int path_to_node = 0;
+        int bit_count = 0;
+        int node = i;
+        
+        // Traverse from node i up to root, recording the path
+        while (node > 0) {
+            if (node % 2 == 1) {
+                // Left child
+                path_to_node |= (0 << bit_count);  // 0 for left
+            } else {
+                // Right child
+                path_to_node |= (1 << bit_count);  // 1 for right
+            }
+            node = (node - 1) / 2;
+            bit_count++;
+        }
+        
+        // The prefix length is depth
+        // We need to count how many numbers in [0, n-1] have the first
+        // 'depth' bits equal to 'path_to_node'
+        
+        if (depth == 0) {
+            // Root node - all balls pass through
+            switch_states[i] = (n % 2 == 1);
         } else {
-            toggle_count += remainder;
+            // Calculate the number of balls with the required prefix
+            // The numbers with the prefix are in the range:
+            // [path_to_node << (D-1-depth), (path_to_node + 1) << (D-1-depth))
+            // but we need to intersect with [0, n)
+            
+            int shift = D - 1 - depth;
+            if (shift < 0) shift = 0;  // For leaf nodes
+            
+            int start = path_to_node << shift;
+            int end = (path_to_node + 1) << shift;
+            
+            int count = 0;
+            if (start < n) {
+                count = min(n, end) - start;
+            }
+            
+            // Switch is open if toggled odd number of times
+            switch_states[i] = (count % 2 == 1);
         }
-        
-        // Switch is open (1) if toggled odd number of times
-        switch_states[i] = (toggle_count % 2 == 1);
     }
     
     // Output leaf node switch states (from left to right)
